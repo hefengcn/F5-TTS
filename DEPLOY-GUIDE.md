@@ -118,6 +118,19 @@ pip install -e . -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 > 使用清华 PyPI 镜像加速。`-e` 为可编辑模式，修改源码后无需重新安装。
 
+**必须卸载 torchcodec**（安装依赖时会被自动拉入）：
+
+```bash
+pip uninstall torchcodec -y
+```
+
+> **为什么必须卸载**：torchcodec 依赖 FFmpeg 共享库（shared DLL），Windows 上通常只有 FFmpeg 静态版。
+> 保留 torchcodec 会导致两个地方崩溃：
+> 1. `torchaudio.load()` 会强制调用 torchcodec → 已通过修改代码用 soundfile 绕过
+> 2. `transformers` 的 ASR pipeline 在预处理音频时也会 `import torchcodec` → 只能卸载
+>
+> **注意**：如果重新执行 `pip install -e .`，torchcodec 会被再次安装，需要再次卸载。
+
 ### 步骤 5：下载预训练模型
 
 **TTS 模型**（从魔塔社区下载）：
@@ -165,7 +178,7 @@ ckpts/
 │   ├── model.safetensors
 │   ├── tokenizer.json
 │   ├── preprocessor_config.json
-│   └── ... (共 13 个文件)
+│   └── ... (共 12 个文件)
 └── README.md
 ```
 
@@ -295,19 +308,22 @@ ImportError: TorchCodec is required for load_with_torchcodec. Please install tor
 ```
 
 **原因链**：
-1. F5-TTS 的 `pyproject.toml` 依赖了 `torchcodec`
+1. F5-TTS 的 `pyproject.toml` 依赖了 `torchcodec`，`pip install -e .` 会自动安装
 2. torchaudio 2.10 的 `load()` 函数**硬编码**调用 `load_with_torchcodec()`，完全忽略 `backend="soundfile"` 参数
 3. torchcodec 需要 **FFmpeg 共享库（shared DLL）**，不能使用静态编译版本
 4. Windows 上通常安装的是 FFmpeg 静态版（只有 `.exe`，没有 `.dll`），torchcodec 找不到共享库
-5. 即使卸载 torchcodec，torchaudio 2.10 也会因缺少 torchcodec 而报 ImportError
+5. 即使卸载 torchcodec，torchaudio 2.10 在调用 `load()` 时仍会因缺少 torchcodec 而 ImportError
+6. `transformers` 的 ASR pipeline 在预处理音频时也会 `import torchcodec`，同样因缺少 FFmpeg 共享库而崩溃
 
 **尝试过的失败方案**：
 - ❌ 传 `backend="soundfile"` → torchaudio 2.10 直接忽略此参数
 - ❌ 下载 FFmpeg 共享版（essentials_shared）→ 国内下载速度极慢，且路径配置复杂
-- ❌ 从 pyproject.toml 移除 torchcodec → torchaudio 仍然要求 torchcodec
+- ❌ 从 pyproject.toml 移除 torchcodec → torchaudio 自身也依赖 torchcodec，pip 仍会安装它
 - ❌ 降级 gradio 到 4.44.0 → F5-TTS 要求 `gradio>=6.0.0`，导入直接报错
 
-**最终解决方案**：绕过 `torchaudio.load()`，直接用 `soundfile` 库加载音频：
+**最终解决方案**（两步缺一不可）：
+
+**第一步**：绕过 `torchaudio.load()`，直接用 `soundfile` 库加载音频（解决推理时的音频加载问题）：
 
 ```python
 # 原始代码（不行）
@@ -326,8 +342,17 @@ else:
     audio = audio.T  # (samples, channels) -> (channels, samples)
 ```
 
+**第二步**：卸载 torchcodec（解决 transformers ASR pipeline 崩溃问题）：
+
+```bash
+pip uninstall torchcodec -y
+```
+
+> 卸载后 `transformers` 的 ASR pipeline 会自动降级到其他音频加载方式，不影响 Whisper 转录功能。
+
 **教训**：
 - **torchaudio 2.10 是一个重大破坏性变更**：它强制依赖 torchcodec+FFmpeg 共享库，`backend` 参数形同虚设
+- torchcodec 的影响范围不限于 torchaudio：`transformers` 等库也会在运行时 `import torchcodec`，**必须完全卸载**
 - 当上游库行为异常且无法快速修复时，**直接替换为底层库调用是最可靠的方案**
 - 不要在一个问题上反复尝试补丁方案，尽早考虑绕过问题根源
 
@@ -522,7 +547,9 @@ HF_ENDPOINT=https://hf-mirror.com huggingface-cli download openai/whisper-large-
 
 ### Q: torchaudio 报 torchcodec/FFmpeg 错误怎么办？
 
-确保 `utils_infer.py` 中的音频加载已修改为使用 soundfile（见 [修改 3](#修改-3srcf5_ttsinferutils_inferpy--绕过-torchaudio用-soundfile-加载音频)）。
+需要两步修复：
+1. 确认 `utils_infer.py` 中的音频加载已修改为使用 soundfile（见 [修改 3](#修改-3srcf5_ttsinferutils_inferpy--绕过-torchaudio用-soundfile-加载音频)）
+2. 确认已卸载 torchcodec：`pip uninstall torchcodec -y`（见 [步骤 4](#步骤-4安装-f5-tts-依赖)）
 
 ### Q: CUDA out of memory 怎么办？
 
@@ -573,7 +600,7 @@ conda create -n f5-tts python=3.10 -y
 |---|---|---|
 | torch | 2.10.0+cu128 | 与 CUDA 12.8 匹配 |
 | torchaudio | 2.10.0+cu128 | ⚠️ 强制依赖 torchcodec，需绕过 |
-| torchcodec | — | ⚠️ 需要 FFmpeg 共享库，Windows 上容易出问题 |
+| torchcodec | 已卸载 | ⚠️ 必须卸载，否则 transformers ASR pipeline 崩溃 |
 | soundfile | — | 替代 torchaudio.load() 加载音频 |
 | gradio | 6.11.0 | ⚠️ h11 错误是 benign，不影响使用 |
 | numpy | 1.26.2 | 不要跨环境拷贝 |
