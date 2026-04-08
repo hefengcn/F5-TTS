@@ -50,20 +50,23 @@ from f5_tts.model import DiT, UNetT
 DEFAULT_TTS_MODEL = "F5-TTS_v1"
 tts_model_choice = DEFAULT_TTS_MODEL
 
+_DEFAULT_CKPT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "ckpts", "F5TTS_v1_Base")
+
 DEFAULT_TTS_MODEL_CFG = [
-    "hf://SWivid/F5-TTS/F5TTS_v1_Base/model_1250000.safetensors",
-    "hf://SWivid/F5-TTS/F5TTS_v1_Base/vocab.txt",
+    os.path.join(_DEFAULT_CKPT_DIR, "model_1250000.safetensors"),
+    os.path.join(_DEFAULT_CKPT_DIR, "vocab.txt"),
     json.dumps(dict(dim=1024, depth=22, heads=16, ff_mult=2, text_dim=512, conv_layers=4)),
 ]
 
 
 # load models
 
-vocoder = load_vocoder()
+_VOCOS_LOCAL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "ckpts", "vocos-mel-24khz")
+vocoder = load_vocoder(is_local=True, local_path=_VOCOS_LOCAL_DIR)
 
 
 def load_f5tts():
-    ckpt_path = str(cached_path(DEFAULT_TTS_MODEL_CFG[0]))
+    ckpt_path = DEFAULT_TTS_MODEL_CFG[0]
     F5TTS_model_cfg = json.loads(DEFAULT_TTS_MODEL_CFG[2])
     return load_model(DiT, F5TTS_model_cfg, ckpt_path)
 
