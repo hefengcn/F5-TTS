@@ -160,9 +160,13 @@ def initialize_asr_pipeline(device: str = device, dtype=None):
             else torch.float32
         )
     global asr_pipe
+    _whisper_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+        "ckpts", "whisper-large-v3-turbo",
+    )
     asr_pipe = pipeline(
         "automatic-speech-recognition",
-        model="openai/whisper-large-v3-turbo",
+        model=_whisper_path,
         torch_dtype=dtype,
         device=device,
     )
@@ -400,7 +404,14 @@ def infer_process(
     device=device,
 ):
     # Split the input text into batches
-    audio, sr = torchaudio.load(ref_audio)
+    # Use soundfile directly to avoid torchaudio 2.10 forcing torchcodec backend
+    import soundfile as sf
+    data, sr = sf.read(ref_audio, dtype="float32")
+    audio = torch.from_numpy(data)
+    if audio.dim() == 1:
+        audio = audio.unsqueeze(0)
+    else:
+        audio = audio.T  # (samples, channels) -> (channels, samples)
     max_chars = int(len(ref_text.encode("utf-8")) / (audio.shape[-1] / sr) * (22 - audio.shape[-1] / sr) * speed)
     gen_text_batches = chunk_text(gen_text, max_chars=max_chars)
     for i, gen_text_i in enumerate(gen_text_batches):
