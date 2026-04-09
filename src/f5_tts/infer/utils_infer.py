@@ -406,7 +406,15 @@ def infer_process(
     # Split the input text into batches
     # Use soundfile directly to avoid torchaudio 2.10 forcing torchcodec backend
     import soundfile as sf
-    data, sr = sf.read(ref_audio, dtype="float32")
+
+    try:
+        data, sr = sf.read(ref_audio, dtype="float32")
+    except Exception:
+        from pydub import AudioSegment
+        with tempfile.NamedTemporaryFile(suffix=".wav", **tempfile_kwargs) as f:
+            temp_path = f.name
+        AudioSegment.from_file(ref_audio).export(temp_path, format="wav")
+        data, sr = sf.read(temp_path, dtype="float32")
     audio = torch.from_numpy(data)
     if audio.dim() == 1:
         audio = audio.unsqueeze(0)
