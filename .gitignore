@@ -1,5 +1,7 @@
 # Customed
 .vscode/
+.claude/
+.mcp.json
 tests/
 runs/
 data/
