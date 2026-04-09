@@ -445,8 +445,8 @@ with gr.Blocks() as app_multistyle:
         with gr.Column(scale=1, min_width=160):
             regular_ref_text_file = gr.File(label="Load Reference Text from File (.txt)", file_types=[".txt"])
 
-    # Regular speech type (max 100)
-    max_speech_types = 100
+    # Regular speech type (max 10, kept low to avoid Gradio 6.x tab-switching lag)
+    max_speech_types = 10
     speech_type_rows = [regular_row]
     speech_type_names = [regular_name]
     speech_type_audios = [regular_audio]
