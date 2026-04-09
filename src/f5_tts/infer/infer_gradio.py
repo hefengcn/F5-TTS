@@ -332,6 +332,12 @@ with gr.Blocks() as app_tts:
         [ref_text_input, ref_text_file],
     )
 
+    ref_audio_input.upload(
+        lambda: gr.update(value=""),
+        None,
+        [ref_text_input],
+    )
+
     generate_btn.click(
         basic_tts,
         inputs=[
