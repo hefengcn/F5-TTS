@@ -96,10 +96,10 @@
 
 | 问题 | 位置 | 影响 | 状态 |
 |------|------|------|------|
-| **torchcodec 硬依赖** | `pyproject.toml` | 每次 `pip install -e .` 强制安装，安装后需手动卸载，否则音频解码异常 | 未修复 |
-| **参考音频缓存无限增长** | `utils_infer.py:35-36` | `_ref_audio_cache` / `_ref_text_cache` 字典无大小限制，长时间运行导致内存泄漏 | 未修复 |
-| **多线程 GPU 推理安全隐患** | `utils_infer.py` | ThreadPoolExecutor 并行调用 CUDA 存在线程安全问题 | 部分修复 (v1.1.18 分离了流式/非流式，但并行本身仍有隐患) |
-| **音频格式支持有限** | `utils_infer.py` | soundfile 不支持 MP3/M4A，用户传入这些格式直接崩溃，无友好提示 | 未修复 |
+| ~~**torchcodec 硬依赖**~~ | `pyproject.toml` | 每次 `pip install -e .` 强制安装，安装后需手动卸载，否则音频解码异常 | **已修复** (代码无实际使用，从 dependencies 中移除) |
+| ~~**参考音频缓存无限增长**~~ | `utils_infer.py:34-37` | `_ref_audio_cache` / `_ref_text_cache` 字典无大小限制，长时间运行导致内存泄漏 | **已修复** (OrderedDict LRU 缓存，上限 64 条，淘汰时清理临时文件) |
+| ~~**多线程 GPU 推理安全隐患**~~ | `utils_infer.py` | ThreadPoolExecutor 并行调用 CUDA 存在线程安全问题 | **已修复** (commit `157cbc4` 移除 ThreadPoolExecutor，改为顺序处理) |
+| ~~**音频格式支持有限**~~ | `utils_infer.py` | soundfile 不支持 MP3/M4A，用户传入这些格式直接崩溃，无友好提示 | **已修复** (`infer_process()` 添加 pydub 回退机制) |
 
 ### 4.2 中优先级问题
 
@@ -149,9 +149,9 @@
 |------|----------|--------|
 | `torch.compile()` 集成 | Transformer 推理加速 30-50% | 中 |
 | BF16 推理统一 | 更高精度，同等性能 | 低 |
-| LRU Cache 替换无限字典 | 修复内存泄漏 | 低 |
+| ~~LRU Cache 替换无限字典~~ | 修复内存泄漏 | ~~低~~ |
 | CUDA Streams 替代 ThreadPool | 解决线程安全 + 真正 GPU 并行 | 中 |
-| 移除 torchcodec 硬依赖 | 安装体验改善 | 低 |
+| ~~移除 torchcodec 硬依赖~~ | 安装体验改善 | ~~低~~ |
 
 ### 6.2 中期方向
 
@@ -159,7 +159,7 @@
 |------|----------|--------|
 | HTTP 微服务封装 | 更通用的部署接口 (REST API) | 中 |
 | 懒加载模型 | 降低启动时间和空闲显存 | 中 |
-| torchcodec 移至 optional | 减少默认依赖 | 低 |
+| ~~torchcodec 移至 optional~~ | 减少默认依赖 | ~~低~~ |
 | 更多社区语言模型 | 扩大用户群 | 社区驱动 |
 
 ### 6.3 长期方向
@@ -206,7 +206,7 @@
 | 许可证限制 (CC-BY-NC) | 商用受限 | 可用自有数据重新训练 |
 | 训练数据依赖 (Emilia) | 数据可用性和质量决定模型质量 | 支持自定义数据集训练 |
 | GPU 需求 | 推理最低 ~4GB 显存 | Small 模型减少需求；CPU 回退可用但慢 |
-| torchcodec 兼容性 | 不同平台安装问题频发 | 计划移至 optional 依赖 |
+| ~~torchcodec 兼容性~~ | 不同平台安装问题频发 | **已移除** (代码无实际使用) |
 | Gradio 版本兼容 | Gradio 大版本升级频繁导致 API 变化 | 持续跟踪更新 |
 
 ---

@@ -10,6 +10,7 @@ sys.path.append(f"{os.path.dirname(os.path.abspath(__file__))}/../../third_party
 import hashlib
 import re
 import tempfile
+from collections import OrderedDict
 from importlib.resources import files
 
 import matplotlib
@@ -31,8 +32,15 @@ from f5_tts.model import CFM
 from f5_tts.model.utils import convert_char_to_pinyin, get_tokenizer
 
 
-_ref_audio_cache = {}
-_ref_text_cache = {}
+_ref_audio_cache = OrderedDict()
+_ref_text_cache = OrderedDict()
+
+_REF_CACHE_MAX_SIZE = 64
+
+
+def _evict_lru(cache):
+    while len(cache) >= _REF_CACHE_MAX_SIZE:
+        cache.popitem(last=False)
 
 device = (
     "cuda"
@@ -306,11 +314,10 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
         audio_data = audio_file.read()
         audio_hash = hashlib.md5(audio_data).hexdigest()
 
-    global _ref_audio_cache
-
     if audio_hash in _ref_audio_cache:
         show_info("Using cached preprocessed reference audio...")
         ref_audio = _ref_audio_cache[audio_hash]
+        _ref_audio_cache.move_to_end(audio_hash)
 
     else:  # first pass, do preprocess
         with tempfile.NamedTemporaryFile(suffix=".wav", **tempfile_kwargs) as f:
@@ -352,19 +359,19 @@ def preprocess_ref_audio_text(ref_audio_orig, ref_text, show_info=print):
         aseg.export(temp_path, format="wav")
         ref_audio = temp_path
 
-        # Cache the processed reference audio
+        # Cache the processed reference audio (LRU eviction)
+        _evict_lru(_ref_audio_cache)
         _ref_audio_cache[audio_hash] = ref_audio
 
     if not ref_text.strip():
-        global _ref_text_cache
         if audio_hash in _ref_text_cache:
-            # Use cached asr transcription
             show_info("Using cached reference text...")
             ref_text = _ref_text_cache[audio_hash]
+            _ref_text_cache.move_to_end(audio_hash)
         else:
             show_info("No reference text provided, transcribing reference audio...")
             ref_text = transcribe(ref_audio)
-            # Cache the transcribed text (not caching custom ref_text, enabling users to do manual tweak)
+            _evict_lru(_ref_text_cache)
             _ref_text_cache[audio_hash] = ref_text
     else:
         show_info("Using custom reference text...")
