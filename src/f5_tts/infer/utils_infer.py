@@ -12,6 +12,7 @@ import re
 import tempfile
 from collections import OrderedDict
 from importlib.resources import files
+from pathlib import Path
 
 import matplotlib
 
@@ -36,6 +37,9 @@ _ref_audio_cache = OrderedDict()
 _ref_text_cache = OrderedDict()
 
 _REF_CACHE_MAX_SIZE = 64
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_WHISPER_CKPT_PATH = str(_PROJECT_ROOT / "ckpts" / "whisper-large-v3-turbo")
 
 
 def _evict_lru(cache):
@@ -167,13 +171,9 @@ def initialize_asr_pipeline(device: str = device, dtype=None):
             else torch.float32
         )
     global asr_pipe
-    _whisper_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-        "ckpts", "whisper-large-v3-turbo",
-    )
     asr_pipe = pipeline(
         "automatic-speech-recognition",
-        model=_whisper_path,
+        model=_WHISPER_CKPT_PATH,
         torch_dtype=dtype,
         device=device,
     )

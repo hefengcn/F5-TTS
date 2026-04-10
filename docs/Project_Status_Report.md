@@ -105,8 +105,8 @@
 
 | 问题 | 说明 |
 |------|------|
-| torchaudio 依赖可移除 | 仅用于 `Resample`，可用 librosa 替代，减少一个重量级依赖 |
-| Whisper 路径构建脆弱 | 4 层 `dirname` 嵌套，应使用 `pathlib.Path.resolve()` |
+| torchaudio 依赖可移除 | 深度集成于 15 个文件，用于 `Resample`/`load`/`save`/`MelSpectrogram`/`info`，替换成本高，不建议移除 |
+| ~~Whisper 路径构建脆弱~~ | 3 处 4 层 `dirname` 嵌套已替换为 `Path(__file__).resolve().parents[3]`，可读性和健壮性提升 |
 | Gradio 模型全量加载 | 启动时无论用不用都加载全部模型，不支持懒加载 |
 | 临时文件无清理 | `preprocess_ref_audio_text()` 生成的临时 wav 不会自动删除 |
 

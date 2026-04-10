@@ -9,6 +9,7 @@ import tempfile
 from collections import OrderedDict
 from functools import lru_cache
 from importlib.resources import files
+from pathlib import Path
 
 import click
 import gradio as gr
@@ -50,7 +51,8 @@ from f5_tts.model import DiT, UNetT
 DEFAULT_TTS_MODEL = "F5-TTS_v1"
 tts_model_choice = DEFAULT_TTS_MODEL
 
-_DEFAULT_CKPT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "ckpts", "F5TTS_v1_Base")
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_DEFAULT_CKPT_DIR = str(_PROJECT_ROOT / "ckpts" / "F5TTS_v1_Base")
 
 DEFAULT_TTS_MODEL_CFG = [
     os.path.join(_DEFAULT_CKPT_DIR, "model_1250000.safetensors"),
@@ -61,7 +63,7 @@ DEFAULT_TTS_MODEL_CFG = [
 
 # load models
 
-_VOCOS_LOCAL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "ckpts", "vocos-mel-24khz")
+_VOCOS_LOCAL_DIR = str(_PROJECT_ROOT / "ckpts" / "vocos-mel-24khz")
 vocoder = load_vocoder(is_local=True, local_path=_VOCOS_LOCAL_DIR)
 
 
